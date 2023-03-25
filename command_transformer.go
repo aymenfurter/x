@@ -5,7 +5,7 @@ import (
 )
 
 var commandList = []string{
-	"node",
+	"nodedisabled",
 }
 
 func isCommandInList(cmd string) bool {
