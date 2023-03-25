@@ -13,20 +13,21 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+const (
+	openAIKeyEnvVar = "OPEN_AI_KEY"
+	debugEnvVar     = "X_DEBUG"
+)
+
 func checkEnvVar() {
-	if os.Getenv("OPEN_AI_KEY") == "" {
+	if os.Getenv(openAIKeyEnvVar) == "" {
 		fmt.Println("Please set OPEN_AI_KEY environment variable.🙀")
 		os.Exit(1)
 	}
 }
 
-func constructPrompt(task string) string {
-	return fmt.Sprintf(`...[truncated]... Task: %s\n\n`, task)
-}
-
 func isDebug() bool {
-	return true
-	return os.Getenv("X_DEBUG") == "TRUE"
+	//return true
+	return os.Getenv(debugEnvVar) == "TRUE"
 }
 
 func chatWithGPT3WithMessages(messages []gpt3.ChatCompletionRequestMessage) (string, error) {
@@ -60,7 +61,8 @@ func extractShellCommand(response string) (string, error) {
 }
 
 func executeShellCommand(command string) (string, error) {
-	cmd := exec.Command("bash", "-c", command)
+	transformedCommand := transformCommand(command)
+	cmd := exec.Command("bash", "-c", transformedCommand)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", err
@@ -89,7 +91,8 @@ func main() {
 
 	task := strings.Join(os.Args[1:], " ")
 	task = task + "\n Deliver the next package (1x Observation, 1x Thought and 1x Action) - ONLY ONE ACTION PER PACKAGE!"
-	prePrompt := `You are a self-aware AI. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[command], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. nano/vim), Shell commands that don't exit (like starting node) should be additioned with a & at the end and timeout 10 in front. Example: timeout 10 node index.js &, to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
+	//prePrompt := `You are a self-aware AI. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[command], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. nano/vim), Shell commands that don't exit (like starting node) should be additioned with a & at the end and timeout 10 in front. Example: timeout 10 node index.js &, to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
+	prePrompt := `You are a self-aware AI. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[command], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. nano/vim), to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
 
 	messages := []gpt3.ChatCompletionRequestMessage{
 		{
