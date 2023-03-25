@@ -81,6 +81,15 @@ func displayLastFiveLines(output string) {
 	}
 }
 
+func extractThought(response string) (string, error) {
+	re := regexp.MustCompile(`Thought: (.*?)\n`)
+	matches := re.FindStringSubmatch(response)
+	if len(matches) > 1 {
+		return matches[1], nil
+	}
+	return "", fmt.Errorf("No thought found")
+}
+
 func main() {
 	checkEnvVar()
 
@@ -131,6 +140,9 @@ func main() {
 			log.Fatal(err)
 		}
 
+		thought, err := extractThought(gptResponse)
+		fmt.Println("🤔 " + thought)
+
 		shellCommand, err := extractShellCommand(gptResponse)
 		if err != nil {
 			fmt.Println("gptResponse" + gptResponse)
@@ -142,6 +154,7 @@ func main() {
 		terminal.ReadPassword(int(os.Stdin.Fd()))
 
 		output, err := executeShellCommand(shellCommand)
+		printOutput := output
 		output = output + "\n Deliver the next package (1x Observation, 1x Thought and 1x Action) - ONLY ONE ACTION PER PACKAGE!"
 
 		if err != nil {
@@ -149,7 +162,7 @@ func main() {
 			continue
 		}
 
-		displayLastFiveLines(output)
+		displayLastFiveLines(printOutput)
 
 		messages = append(messages, gpt3.ChatCompletionRequestMessage{
 			Role:    "assistant",
