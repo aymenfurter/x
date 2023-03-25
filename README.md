@@ -1,6 +1,6 @@
 X
 ==================
-X is an innovative Go application that lets you leverage the power of OpenAI's large language models to solve a wide range of tasks, all from the comfort of your terminal.
+X is a Go application that lets you leverage the power of OpenAI's large language models to solve a wide range of tasks, all from the comfort of your terminal.
 The key difference between X and existing terminal-based copilot solutions is the role reversal. In X, the human user takes on the role of the copilot, while the AI assumes the pilot seat.
 
 
