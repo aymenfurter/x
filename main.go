@@ -8,10 +8,10 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PullRequestInc/go-gpt3"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 const (
@@ -64,22 +64,12 @@ func extractShellCommand(response string) (string, error) {
 func executeShellCommand(command string) (string, error) {
 	transformedCommand := transformCommand(command)
 	cmd := exec.Command("bash", "-c", transformedCommand)
+	fmt.Println("\033[32m $\033[0m", transformedCommand)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", err
+		return string(output), err
 	}
 	return string(output), nil
-}
-
-func displayLastFiveLines(output string) {
-	lines := strings.Split(output, "\n")
-	start := 0
-	if len(lines) > 5 {
-		start = len(lines) - 5
-	}
-	for _, line := range lines[start:] {
-		fmt.Println(line)
-	}
 }
 
 func extractThought(response string) (string, error) {
@@ -92,6 +82,9 @@ func extractThought(response string) (string, error) {
 }
 
 func main() {
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	checkEnvVar()
 
 	if len(os.Args) < 2 {
@@ -134,9 +127,20 @@ func main() {
 	confirmCommand := true
 	for {
 		fmt.Print("🤔 ")
-		typingEffect(" . . . ", 75*time.Millisecond, "orange")
+		progressActive = true
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			showProgress()
+		}()
 
 		gptResponse, err := chatWithGPT3WithMessages(messages)
+
+		closeProgress()
+
+		//wg.Wait()
+
 		if strings.HasSuffix(gptResponse, "Finish[]") {
 			fmt.Println("\033[33m🎉 Task completed 🎉\033[0m")
 			break
@@ -151,14 +155,12 @@ func main() {
 
 		shellCommand, err := extractShellCommand(gptResponse)
 		if err != nil {
-			fmt.Println("gptResponse" + gptResponse)
-			fmt.Println("🙏 Invalid response, sorry for that, trying again..")
 			continue
 		}
 
 		// use typing effect instead
 		typingEffect("Executing: ", 10*time.Millisecond, "white")
-		typingEffect(shellCommand, 30*time.Millisecond, "grey")
+		typingEffect(shellCommand, 10*time.Millisecond, "grey")
 		typingEffect("\nConfirm: [Y]es / [N]o / [A]ll future commands..  ", 10*time.Millisecond, "white")
 		confirmation := askConfirmation()
 		fmt.Println()
@@ -167,26 +169,23 @@ func main() {
 			confirmation = "y"
 		}
 
-		if confirmation == "y" {
-			continue
-		} else if confirmation == "n" {
+		if confirmation == "n" {
 			os.Exit(0)
 		} else if confirmation == "a" {
 			confirmCommand = false
 		}
-
-		terminal.ReadPassword(int(os.Stdin.Fd()))
 
 		output, err := executeShellCommand(shellCommand)
 		printOutput := output
 		output = output + "\n Deliver the next package (1x Observation, 1x Thought and 1x Action) - ONLY ONE ACTION PER PACKAGE!"
 
 		if err != nil {
-			fmt.Println("Error executing command:", err)
-			continue
+			//fmt.Println("Error executing command:", err)
+			scrollText(printOutput)
+			//continue
 		}
 
-		displayLastFiveLines(printOutput)
+		scrollText(printOutput)
 
 		messages = append(messages, gpt3.ChatCompletionRequestMessage{
 			Role:    "assistant",
@@ -196,4 +195,33 @@ func main() {
 			Content: output,
 		})
 	}
+}
+
+var (
+	progressActive = true
+	progressMtx    sync.Mutex
+)
+
+func showProgress() {
+	emojiChars := []string{"🤔  ", "🧐  ", "🤨  "}
+	i := 0
+
+	for {
+		progressMtx.Lock()
+		if !progressActive {
+			progressMtx.Unlock()
+			break
+		}
+		progressMtx.Unlock()
+
+		fmt.Printf("\r%s", emojiChars[i])
+		i = (i + 1) % len(emojiChars)
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func closeProgress() {
+	progressMtx.Lock()
+	defer progressMtx.Unlock()
+	progressActive = false
 }

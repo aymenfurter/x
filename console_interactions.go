@@ -40,3 +40,23 @@ func askConfirmation() string {
 		fmt.Println("Invalid choice. Please enter Y, N, or A.")
 	}
 }
+
+func scrollText(text string) {
+	printIndentedText(text, 30, 5)
+}
+
+func printIndentedText(text string, numLines int, indent int) {
+	lines := strings.Split(text, "\n")
+	startIndex := len(lines) - numLines - 1
+	if startIndex < 0 {
+		startIndex = 0
+	}
+
+	indentStr := strings.Repeat(" ", indent)
+	greyColor := "\033[90m"
+	resetColor := "\033[0m"
+
+	for i := startIndex; i < len(lines); i++ {
+		fmt.Printf("%s%s%s%s\n", greyColor, indentStr, lines[i], resetColor)
+	}
+}
