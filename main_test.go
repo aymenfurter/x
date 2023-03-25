@@ -25,8 +25,8 @@ func TestCheckEnvVar(t *testing.T) {
 }
 
 func TestExtractShellCommand(t *testing.T) {
-	response := "Action: Shell[ls]"
-	expected := "ls"
+	response := "Action: Shell[[[echo 'FROM mcr.microsoft.com/dotnet/sdk:5.0\nWORKDIR /app\nCOPY . .\nRUN dotnet publish -c Release -o out\nENTRYPOINT [\"dotnet\", \"out/MyApp.dll\"]' > Dockerfile]]]"
+	expected := "echo 'FROM mcr.microsoft.com/dotnet/sdk:5.0\nWORKDIR /app\nCOPY . .\nRUN dotnet publish -c Release -o out\nENTRYPOINT [\"dotnet\", \"out/MyApp.dll\"]' > Dockerfile"
 	result, err := extractShellCommand(response)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)

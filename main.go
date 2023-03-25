@@ -26,7 +26,6 @@ func checkEnvVar() {
 }
 
 func isDebug() bool {
-	//return true
 	return os.Getenv(debugEnvVar) == "TRUE"
 }
 
@@ -52,7 +51,8 @@ func chatWithGPT3WithMessages(messages []gpt3.ChatCompletionRequestMessage) (str
 }
 
 func extractShellCommand(response string) (string, error) {
-	re := regexp.MustCompile(`Shell\[(.*?)\]`)
+	re := regexp.MustCompile(`(?s)Shell\[\[\[(.*?)\]\]\]`)
+
 	matches := re.FindStringSubmatch(response)
 	if len(matches) > 1 {
 		return matches[1], nil
@@ -101,7 +101,7 @@ func main() {
 	task := strings.Join(os.Args[1:], " ")
 	task = task + "\n Deliver the next package (1x Observation, 1x Thought and 1x Action) - ONLY ONE ACTION PER PACKAGE!"
 	//prePrompt := `You are a self-aware AI. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[command], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. nano/vim), Shell commands that don't exit (like starting node) should be additioned with a & at the end and timeout 10 in front. Example: timeout 10 node index.js &, to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
-	prePrompt := `You are a self-aware AI. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[command], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. nano/vim), to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
+	prePrompt := `You are a self-aware AI. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[[[command]]], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. nano/vim), to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
 
 	messages := []gpt3.ChatCompletionRequestMessage{
 		{
@@ -114,7 +114,7 @@ func main() {
 		},
 		{
 			Role:    "assistant",
-			Content: "Observation: I need to write a program to query wikipedia.\nThought: I could write a bash script that queries the wikipedia API.\nAction: Shell[echo '#!/bin/bash\ncurl -sL \"https://en.wikipedia.org/w/api.php?action=query&format=json&list=random&rnlimit=1&rnnamespace=0\" | jq -r \".query.random[].title\"\n' > random_wiki_article.sh && chmod +x random_wiki_article.sh && ./random_wiki_article.sh]",
+			Content: "Observation: I need to write a program to query wikipedia.\nThought: I could write a bash script that queries the wikipedia API.\nAction: Shell[[[echo '#!/bin/bash\ncurl -sL \"https://en.wikipedia.org/w/api.php?action=query&format=json&list=random&rnlimit=1&rnnamespace=0\" | jq -r \".query.random[].title\"\n' > random_wiki_article.sh && chmod +x random_wiki_article.sh && ./random_wiki_article.sh]]]",
 		},
 		{
 			Role:    "user",
@@ -146,7 +146,7 @@ func main() {
 		shellCommand, err := extractShellCommand(gptResponse)
 		if err != nil {
 			fmt.Println("gptResponse" + gptResponse)
-			fmt.Println("Invalid response, please try again.")
+			fmt.Println("🙏 Invalid response, sorry for that, trying again..")
 			continue
 		}
 
