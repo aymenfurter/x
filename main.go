@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/PullRequestInc/go-gpt3"
 	"golang.org/x/crypto/ssh/terminal"
@@ -130,7 +131,11 @@ func main() {
 		},
 	}
 
+	confirmCommand := true
 	for {
+		fmt.Print("🤔 ")
+		typingEffect(" . . . ", 75*time.Millisecond, "orange")
+
 		gptResponse, err := chatWithGPT3WithMessages(messages)
 		if strings.HasSuffix(gptResponse, "Finish[]") {
 			fmt.Println("\033[33m🎉 Task completed 🎉\033[0m")
@@ -141,7 +146,8 @@ func main() {
 		}
 
 		thought, err := extractThought(gptResponse)
-		fmt.Println("🤔 " + thought)
+		typingEffect(thought, 10*time.Millisecond, "orange")
+		fmt.Println()
 
 		shellCommand, err := extractShellCommand(gptResponse)
 		if err != nil {
@@ -150,7 +156,25 @@ func main() {
 			continue
 		}
 
-		fmt.Printf("Executing: %s\nPress Enter to confirm or Ctrl+C to abort...", shellCommand)
+		// use typing effect instead
+		typingEffect("Executing: ", 10*time.Millisecond, "white")
+		typingEffect(shellCommand, 30*time.Millisecond, "grey")
+		typingEffect("\nConfirm: [Y]es / [N]o / [A]ll future commands..  ", 10*time.Millisecond, "white")
+		confirmation := askConfirmation()
+		fmt.Println()
+
+		if !confirmCommand {
+			confirmation = "y"
+		}
+
+		if confirmation == "y" {
+			continue
+		} else if confirmation == "n" {
+			os.Exit(0)
+		} else if confirmation == "a" {
+			confirmCommand = false
+		}
+
 		terminal.ReadPassword(int(os.Stdin.Fd()))
 
 		output, err := executeShellCommand(shellCommand)
