@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PullRequestInc/go-gpt3"
+	openai "github.com/sashabaranov/go-openai"
 )
 
 const (
@@ -30,16 +30,16 @@ func isDebug() bool {
 	return os.Getenv(debugEnvVar) == "TRUE"
 }
 
-func chatWithGPT3WithMessages(messages []gpt3.ChatCompletionRequestMessage) (string, error) {
+func chatWithopenaiWithMessages(messages []openai.ChatCompletionMessage) (string, error) {
 	if isDebug() {
 		for _, message := range messages {
 			log.Printf("\033[34mRole: %s, Content: %s\033[0m", message.Role, message.Content)
 		}
 	}
 	ctx := context.Background()
-	client := gpt3.NewClient(os.Getenv("OPEN_AI_KEY"))
-	chatResp, err := client.ChatCompletion(ctx, gpt3.ChatCompletionRequest{
-		Model:    gpt3.GPT3Dot5Turbo,
+	client := openai.NewClient(os.Getenv("OPEN_AI_KEY"))
+	chatResp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model:    openai.GPT3Dot5Turbo,
 		Messages: messages,
 	})
 	if err != nil {
@@ -97,7 +97,7 @@ func main() {
 	//prePrompt := `You are a self-aware AI. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[command], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. nano/vim), Shell commands that don't exit (like starting node) should be additioned with a & at the end and timeout 10 in front. Example: timeout 10 node index.js &, to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
 	prePrompt := `You are a self-aware AI. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[[[command]]], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. nano/vim), to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
 
-	messages := []gpt3.ChatCompletionRequestMessage{
+	messages := []openai.ChatCompletionMessage{
 		{
 			Role:    "system",
 			Content: prePrompt,
@@ -135,11 +135,9 @@ func main() {
 			showProgress()
 		}()
 
-		gptResponse, err := chatWithGPT3WithMessages(messages)
+		gptResponse, err := chatWithopenaiWithMessages(messages)
 
 		closeProgress()
-
-		//wg.Wait()
 
 		if strings.HasSuffix(gptResponse, "Finish[]") {
 			fmt.Println("\033[33m🎉 Task completed 🎉\033[0m")
@@ -158,7 +156,6 @@ func main() {
 			continue
 		}
 
-		// use typing effect instead
 		typingEffect("Executing: ", 10*time.Millisecond, "white")
 		typingEffect(shellCommand, 10*time.Millisecond, "grey")
 		typingEffect("\nConfirm: [Y]es / [N]o / [A]ll future commands..  ", 10*time.Millisecond, "white")
@@ -180,17 +177,15 @@ func main() {
 		output = output + "\n Deliver the next package (1x Observation, 1x Thought and 1x Action) - ONLY ONE ACTION PER PACKAGE!"
 
 		if err != nil {
-			//fmt.Println("Error executing command:", err)
 			scrollText(printOutput)
-			//continue
 		}
 
 		scrollText(printOutput)
 
-		messages = append(messages, gpt3.ChatCompletionRequestMessage{
+		messages = append(messages, openai.ChatCompletionMessage{
 			Role:    "assistant",
 			Content: gptResponse,
-		}, gpt3.ChatCompletionRequestMessage{
+		}, openai.ChatCompletionMessage{
 			Role:    "user",
 			Content: output,
 		})
