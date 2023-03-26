@@ -1,7 +1,13 @@
 X
 ==================
-X is a Go application that lets you leverage the power of OpenAI's large language models to solve a wide range of tasks, all from the comfort of your terminal.
-The key difference between X and existing terminal-based copilot solutions is the role reversal. In X, the human user takes on the role of the copilot, while the AI assumes the pilot seat.
+
+## What is X?
+Begin by initiating a task, such as x `x "build a new nodejs cli app allows me to manage pets"`. 
+Watch as X takes control of your terminal, efficiently carrying out the assigned task.🍿
+
+![X Demo Video](/demo.gif)
+
+X is written in Go. It uses OpenAI's large language models to solve a wide range of tasks (setting up a code repo, deploying to kubernetes or setting up cloud infrastructure), all from the comfort of your terminal. The key difference between X and existing terminal-based copilot solutions is the role reversal. In X, the human user takes on the role of the copilot, while the AI assumes the pilot seat. 
 
 
 Getting Started
@@ -24,15 +30,10 @@ Usage
 -----
 
 Once you have set up the environment variable and installed the X application, you can start using it to solve tasks. For instance, to build a new Node.js CLI app that allows you to manage pets, simply run the following command:
-`x "build a new nodejs cli app allows me to manage pets"`
+
+`x build a new nodejs cli app allows me to manage pets`
 
 The AI will go through the task step by step, asking for your confirmation before executing each step. This interactive approach ensures that you stay in control while the AI takes care of the heavy lifting.
-
-Demo Video
-----------
-Watch this demo video to see X in action, solving the Node.js CLI app task mentioned above:
-
-[![X Demo Video](https://img.youtube.com/vi/VIPRT7NlHC8/0.jpg)](https://www.youtube.com/watch?v=VIPRT7NlHC8)
 
 
 License
