@@ -2,7 +2,7 @@ X
 ==================
 
 ## What is X?
-Begin by initiating a task, such as x `x "build a new nodejs cli app allows me to manage pets"`. 
+Begin by initiating a task, such as `x "build a new nodejs cli app allows me to manage pets"`. 
 Watch as X takes control of your terminal, efficiently carrying out the assigned task.🍿
 
 ![X Demo Video](/demo.gif)
