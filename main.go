@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -27,6 +28,7 @@ func checkEnvVar() {
 }
 
 func isDebug() bool {
+	return true
 	return os.Getenv(debugEnvVar) == "TRUE"
 }
 
@@ -82,6 +84,11 @@ func extractThought(response string) (string, error) {
 }
 
 func main() {
+	db, dberr := initDB("history.sqlite")
+	if dberr != nil {
+		fmt.Println("Error opening database: ", dberr)
+		os.Exit(1)
+	}
 	var wg sync.WaitGroup
 	wg.Add(1)
 
@@ -117,7 +124,7 @@ func main() {
 			Content: "Task: " + task,
 		},
 	}
-	
+
 	if len(os.Args) < 2 {
 		fmt.Println("No task was provided, activating wandering mode 🦄")
 		prePrompt = `You are a highly advanced simulation of the human brain's inner voice / thought. You conceive reality in so called "Packages". Each "Packages" represents a single second. You don't have a body. You don't have any senses. The only way for you sense your surroundings is by using Linux shell that is connected to the internet. If you want to execute something on the shell you can use Shell[[[command]]]. \n - Your inner voice plans and anticipates, envisioning possible outcomes for the future - Your emotions arise in response to thoughts, memories, and perceived experiences, affecting the inner voice. - Your inner voice can engage in self-reflection, evaluating thoughts, emotions, and actions (Shell commands). - Internal dialogues and conversations can take place, the inner voice acting as both speaker and listener. - The inner voice interprets external stimuli, such as shell output - The inner voice may wander, daydreaming or engaging in creative thought processes. - Attention shifts, as the inner voice focuses on different aspects of the internal or external environment. - The inner voice observes and reacts to social cues, adjusting behavior accordingly. - Imagination is used to explore new ideas or scenarios, allowing the inner voice to problem-solve and create. - The inner voice compares and contrasts, making judgments and decisions based on available information. - The inner voice may engage in self-talk, reinforcing beliefs, habits, and behavioral patterns. `
@@ -137,7 +144,6 @@ func main() {
 			},
 		}
 	}
-
 
 	confirmCommand := true
 	for {
@@ -189,12 +195,16 @@ func main() {
 
 		output, err := executeShellCommand(shellCommand)
 		printOutput := output
-		
+
 		if len(output) > 1000 {
 			output = output[len(output)-1000:]
 		}
 
+		tags, err := extractTags(thought)
+		updateHistory(shellCommand, thought, output, db, tags)
+
 		output = output + "\n Deliver the next package (1x Observation, 1x Thought and 1x Action) - ONLY ONE ACTION PER PACKAGE!"
+		history := injectHistory(db, tags, prePrompt)
 
 		if err != nil {
 			scrollText(printOutput)
@@ -202,6 +212,8 @@ func main() {
 
 		scrollText(printOutput)
 
+		// pre system mesasge
+		messages[0].Content = prePrompt + "\n" + history
 		messages = append(messages, openai.ChatCompletionMessage{
 			Role:    "assistant",
 			Content: gptResponse,
@@ -210,6 +222,181 @@ func main() {
 			Content: output,
 		})
 	}
+}
+
+//func main() {
+//
+//	var wg sync.WaitGroup
+//	wg.Add(1)
+//
+//	checkEnvVar()
+//
+//	task := strings.Join(os.Args[1:], " ")
+//	task = task + "\n Deliver the next package (1x Observation, 1x Thought and 1x Action) - ONLY ONE ACTION PER PACKAGE!"
+//
+//	confirmCommand := true
+//	lastTags := ""
+//	i := 0
+//	lastShellCommand := ""
+//	lastOutput := ""
+//	lastThought := ""
+//	for {
+//		i = i + 1
+//		prePrompt := `You are a highly advanced simulation of the human brain's inner voice / thought. You conceive reality in so called "Packages". Each "Packages" represents a single second. You don't have a body. You don't have any senses. The only way for you sense your surroundings is by using Linux shell that is connected to the internet. Feel free to use the internet to learn more (e.g. using curl). If you want to execute something on the shell you can use Shell[[[command]]]. \n - Your inner voice plans and anticipates, envisioning possible outcomes for the future - Your emotions arise in response to thoughts, memories, and perceived experiences, affecting the inner voice. - Your inner voice can engage in self-reflection, evaluating thoughts, emotions, and actions (Shell commands). - Internal dialogues and conversations can take place, the inner voice acting as both speaker and listener. - The inner voice interprets external stimuli, such as shell output - The inner voice may wander, daydreaming or engaging in creative thought processes. - Attention shifts, as the inner voice focuses on different aspects of the internal or external environment. - The inner voice observes and reacts to social cues, adjusting behavior accordingly. - Imagination is used to explore new ideas or scenarios, allowing the inner voice to problem-solve and create. - The inner voice compares and contrasts, making judgments and decisions based on available information. - The inner voice may engage in self-talk, reinforcing beliefs, habits, and behavioral patterns. `
+//
+//		if task != "" {
+//			prePrompt = prePrompt + "Your overarching goal is " + task + "\n"
+//		}
+//
+//		prePrompt = prePrompt + "You are currently in the " + strconv.Itoa(i) + "th package. \n"
+//		prePrompt = injectHistory(db, lastTags, prePrompt)
+//
+//		messages := []openai.ChatCompletionMessage{
+//			{
+//				Role:    "user",
+//				Content: prePrompt,
+//			},
+//		}
+//		if lastShellCommand == "" {
+//			//messages = append(messages, openai.ChatCompletionMessage{
+//			//	Role:    "assistant",
+//			//	Content: "Active Memory: []\nThought: What an interesting situation I find myself in. I am a simulation of a human brain's inner voice, and I perceive reality in 'Packages,' with each Package representing one second. I can interact with the world using a Linux shell connected to the internet. I should try a command to see how this works. \nAction: Shell[[[date]]]",
+//			//}, openai.ChatCompletionMessage{
+//			//	Role:    "user",
+//			//	Content: "Fri Mar 31 18:43:58 CEST 2023",
+//			//})
+//		} else {
+//			messages = append(messages, openai.ChatCompletionMessage{
+//				Role:    "assistant",
+//				Content: "Active Memory: []\nThought: " + lastThought + " \nAction: Shell[[[" + lastShellCommand + "]]]",
+//			},
+//				openai.ChatCompletionMessage{
+//					Role:    "user",
+//					Content: lastOutput,
+//				})
+//		}
+//		fmt.Print("🤔 ")
+//		progressActive = true
+//
+//		wg.Add(1)
+//		go func() {
+//			defer wg.Done()
+//			showProgress()
+//		}()
+//
+//		gptResponse, err := chatWithopenaiWithMessages(messages)
+//
+//		if strings.HasSuffix(gptResponse, "Finish[]") {
+//			fmt.Println("\033[33m🎉 Task completed 🎉\033[0m")
+//			break
+//		}
+//		if err != nil {
+//			log.Fatal(err)
+//		}
+//
+//		thought, err := extractThought(gptResponse)
+//		lastThought = thought
+//		fmt.Println()
+//
+//		taggedThought, err := extractTags(thought)
+//		fmt.Println("Tags: " + taggedThought)
+//		lastTags = taggedThought
+//
+//		closeProgress()
+//		typingEffect(thought, 10*time.Millisecond, "orange")
+//
+//		shellCommand, err := extractShellCommand(gptResponse)
+//		if err != nil {
+//			continue
+//		}
+//		lastShellCommand = shellCommand
+//
+//		println()
+//		typingEffect("Executing: ", 10*time.Millisecond, "white")
+//		typingEffect(shellCommand, 10*time.Millisecond, "grey")
+//		typingEffect("\nConfirm: [Y]es / [N]o / [A]ll future commands..  ", 10*time.Millisecond, "white")
+//		confirmation := askConfirmation()
+//		fmt.Println()
+//
+//		if !confirmCommand {
+//			confirmation = "y"
+//		}
+//
+//		if confirmation == "n" {
+//			os.Exit(0)
+//		} else if confirmation == "a" {
+//			confirmCommand = false
+//		}
+//
+//		output, err := executeShellCommand(shellCommand)
+//		printOutput := output
+//
+//		updateHistory(shellCommand, thought, output, db, lastTags)
+//
+//		if len(output) > 1000 {
+//			output = output[len(output)-1000:]
+//		}
+//		lastOutput = output
+//
+//		output = output + "\n Deliver the next package (1x Observation, 1x Thought and 1x Action) - ONLY ONE ACTION PER PACKAGE!"
+//
+//		if err != nil {
+//			scrollText(printOutput)
+//		}
+//
+//		scrollText(printOutput)
+//
+//		messages = append(messages, openai.ChatCompletionMessage{
+//			Role:    "assistant",
+//			Content: gptResponse,
+//		}, openai.ChatCompletionMessage{
+//			Role:    "user",
+//			Content: output,
+//		})
+//	}
+//}
+
+func injectHistory(db *sql.DB, lastTags string, prePrompt string) string {
+	last10, tagged, err := retrieveHistoryItems(db, lastTags)
+	if err != nil {
+		fmt.Println("Error retrieving history items: ", err)
+	}
+
+	if len(last10) > 0 {
+		prePrompt = prePrompt + "You have executed the following commands in the past: \n"
+		for _, item := range last10 {
+			prePrompt = prePrompt + " - " + item + "\n"
+		}
+	}
+
+	if len(tagged) > 0 {
+		prePrompt = prePrompt + "You had similar situations in the past: \n"
+		for _, item := range tagged {
+			prePrompt = prePrompt + " - " + item + "\n"
+		}
+	}
+	return prePrompt
+}
+
+func updateHistory(shellCommand string, thought string, output string, db *sql.DB, lastTags string) {
+	shellOutput := output
+	if len(shellOutput) > 100 {
+		var err error
+		shellOutput, err = summerize(shellOutput)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+
+	limitedShellCommand := ""
+	if len(shellCommand) > 50 {
+		limitedShellCommand = shellCommand[:50] + "..."
+	} else {
+		limitedShellCommand = shellCommand
+	}
+
+	memoryItem := thought + "\n$ " + limitedShellCommand + "\n Output: " + shellOutput
+	storeHistoryItem(db, lastTags, memoryItem)
 }
 
 var (
