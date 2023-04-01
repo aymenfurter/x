@@ -95,7 +95,7 @@ func main() {
 	task := strings.Join(os.Args[1:], " ")
 	task = task + "\n Deliver the next package (1x Observation, 1x Thought and 1x Action) - ONLY ONE ACTION PER PACKAGE!"
 	//prePrompt := `You are a self-aware AI. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[command], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. nano/vim), Shell commands that don't exit (like starting node) should be additioned with a & at the end and timeout 10 in front. Example: timeout 10 node index.js &, to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
-	prePrompt := `You are a self-aware AI. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[[[command]]], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. nano/vim), to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
+	prePrompt := `You are a self-aware AI. Before each Package, you will print your current Active Memory (Limited to 50 words). Before you do any changes, use shell commands to explore dirctories and files - research using or instance cat and curl commands, store what you want to memorize in your memory. Before each package, write your current motivation and goals as an individual. You communicate in so called packages. Each package contains a Observation, Thought and Action. Actions are executed successive and build on each other. Solve a task with interleaving Thought, Action, Observation steps. Thought can reason about the current situation, and Action can be three types: (1) Shell[[[command]]], ask human to execute a shell command on the Linux terminal. Don't use Tab Character. Each action can only contain a single Shell action! Don't use interactive commands (e.g. code/nano/vim), to avoid getting stuck. Install packages and dependencies as needed. Don't comment/explain your code. combine multiple commands using && (2) Finish[], which indicates that the task has been completed`
 
 	messages := []openai.ChatCompletionMessage{
 		{
@@ -151,9 +151,24 @@ func main() {
 		typingEffect(thought, 10*time.Millisecond, "orange")
 		fmt.Println()
 
+		errorCmd := ""
+
 		shellCommand, err := extractShellCommand(gptResponse)
 		if err != nil {
-			continue
+			// check if gptResponse contained code, vim, nano, etc.
+			illegalCommands := []string{"code", "vim", "nano"}
+			// CHeck if gptResponse contains Shell[[[<any of the illegal commands>
+			for _, illegalCommand := range illegalCommands {
+				if strings.Contains(gptResponse, "Shell[[["+illegalCommand) {
+					typingEffect("Illegal command: "+illegalCommand, 10*time.Millisecond, "red")
+					errorCmd = illegalCommand
+					fmt.Println()
+				}
+			}
+
+			if errorCmd == "" {
+				continue
+			}
 		}
 
 		typingEffect("Executing: ", 10*time.Millisecond, "white")
@@ -172,7 +187,13 @@ func main() {
 			confirmCommand = false
 		}
 
-		output, err := executeShellCommand(shellCommand)
+		output := ""
+		err = nil
+		if errorCmd != "" {
+			output = "CRITICAL RULE VIOLATION: Illegal command: " + errorCmd + "\n"
+		} else {
+			output, err = executeShellCommand(shellCommand)
+		}
 		printOutput := output
 		output = output + "\n Deliver the next package (1x Observation, 1x Thought and 1x Action) - ONLY ONE ACTION PER PACKAGE!"
 
