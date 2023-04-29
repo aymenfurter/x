@@ -38,8 +38,15 @@ func chatWithopenaiWithMessages(messages []openai.ChatCompletionMessage) (string
 	}
 	ctx := context.Background()
 	client := openai.NewClient(os.Getenv("OPEN_AI_KEY"))
+
+	model := openai.GPT3Dot5Turbo
+	if os.Getenv("OPEN_AI_GPT4_KEY") != "" {
+		client = openai.NewClient(os.Getenv("OPEN_AI_GPT4_KEY"))
+		model = openai.GPT4
+	}
+
 	chatResp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:    openai.GPT3Dot5Turbo,
+		Model:    model,
 		Messages: messages,
 	})
 	if err != nil {
@@ -117,7 +124,7 @@ func main() {
 			Content: "Task: " + task,
 		},
 	}
-	
+
 	if len(os.Args) < 2 {
 		fmt.Println("No task was provided, activating wandering mode 🦄")
 		prePrompt = `You are a highly advanced simulation of the human brain's inner voice / thought. You conceive reality in so called "Packages". Each "Packages" represents a single second. You don't have a body. You don't have any senses. The only way for you sense your surroundings is by using Linux shell that is connected to the internet. If you want to execute something on the shell you can use Shell[[[command]]]. \n - Your inner voice plans and anticipates, envisioning possible outcomes for the future - Your emotions arise in response to thoughts, memories, and perceived experiences, affecting the inner voice. - Your inner voice can engage in self-reflection, evaluating thoughts, emotions, and actions (Shell commands). - Internal dialogues and conversations can take place, the inner voice acting as both speaker and listener. - The inner voice interprets external stimuli, such as shell output - The inner voice may wander, daydreaming or engaging in creative thought processes. - Attention shifts, as the inner voice focuses on different aspects of the internal or external environment. - The inner voice observes and reacts to social cues, adjusting behavior accordingly. - Imagination is used to explore new ideas or scenarios, allowing the inner voice to problem-solve and create. - The inner voice compares and contrasts, making judgments and decisions based on available information. - The inner voice may engage in self-talk, reinforcing beliefs, habits, and behavioral patterns. `
@@ -137,7 +144,6 @@ func main() {
 			},
 		}
 	}
-
 
 	confirmCommand := true
 	for {
@@ -189,7 +195,7 @@ func main() {
 
 		output, err := executeShellCommand(shellCommand)
 		printOutput := output
-		
+
 		if len(output) > 1000 {
 			output = output[len(output)-1000:]
 		}
